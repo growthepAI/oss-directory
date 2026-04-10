@@ -1,0 +1,12 @@
+version: 7
+name: julien-coppola
+display_name: MTRKR
+description: |-
+  MTRKR (Mega Tracker) is the first wallet visualizer 100% dedicated to the MegaETH ecosystem.
+
+  Track your wallet activity in real time, get clear insights on what you’re doing on chain, climb the leaderboard, swap tokens, access vaults, collect badges, and unlock ecosystem advantages. MegaTracker is built for newcomers and active users, with a strong focus on clarity, real usage and community driven incentives.
+websites:
+  - url: https://www.mtrkr.xyz/
+social:
+  twitter:
+    - url: https://x.com/mtrkr_xyz
