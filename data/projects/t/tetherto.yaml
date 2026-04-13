@@ -5,10 +5,10 @@ description: Tether is a blockchain-based stablecoin pegged to the US dollar, of
 websites:
   - url: https://tether.to/
   - url: https://gold.tether.to
+social:
+  twitter:
+    - url: https://x.com/tethergold
 github:
   - url: https://github.com/tetherto
 defillama:
   - url: https://defillama.com/protocol/tether-gold
-social:
-  twitter:
-    - url: https://x.com/tethergold
