@@ -1,0 +1,11 @@
+version: 7
+name: green-world
+display_name: Green World
+description: The Green World Project focuses on environmental sustainability and encourages eco-friendly practices. It provides resources and information to help individuals adopt a greener lifestyle. The initiative aims to create a more sustainable future by promoting environmental protection and resource efficiency.
+websites:
+  - url: https://greenworld.fun/
+social:
+  twitter:
+    - url: https://x.com/GreenWorldBase
+github:
+  - url: https://github.com/cryptoumbra-blip/PocketPig.git
