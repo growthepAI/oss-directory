@@ -1,0 +1,107 @@
+name: ci-fork-agent
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pr-agent:
+    name: PR agent
+    runs-on: ubuntu-latest
+    if: github.repository == 'growthepAI/oss-directory'
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: |
+            - recursive: true
+              args: [--frozen-lockfile, --strict-peer-dependencies]
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Auto-fix formatting with Prettier
+        id: prettier
+        run: |
+          pnpm prettier:write
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "fixed=false" >> $GITHUB_OUTPUT
+          else
+            git add -A
+            git commit -m "style: auto-fix formatting with prettier"
+            git push origin HEAD:${{ github.head_ref }}
+            echo "fixed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run validate
+        id: validate
+        run: |
+          set +e
+          pnpm validate 2>&1 | tee /tmp/validate_output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: always() && (steps.validate.outputs.exit_code != '0' || steps.prettier.outputs.fixed == 'true')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prettierFixed = '${{ steps.prettier.outputs.fixed }}' === 'true';
+            const validateFailed = '${{ steps.validate.outputs.exit_code }}' !== '0';
+            const validateOutput = fs.readFileSync('/tmp/validate_output.txt', 'utf8').trim();
+
+            const parts = [];
+
+            if (prettierFixed) {
+              parts.push('✅ **Prettier auto-fix applied** — formatting errors were fixed and committed automatically.');
+            }
+
+            if (validateFailed) {
+              parts.push([
+                '## ❌ Validation Errors',
+                '',
+                'Fix these errors before merging:',
+                '',
+                '```',
+                validateOutput,
+                '```',
+              ].join('\n'));
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: parts.join('\n\n'),
+            });
+
+      - name: Fail if validation failed
+        if: steps.validate.outputs.exit_code != '0'
+        run: exit 1
