@@ -51,6 +51,7 @@ jobs:
           # Check out pull request's HEAD commit instead of the merge commit to
           # prevent gitlint from failing due to too long commit message titles,
           # e.g. "Merge 3e621938d65caaa67f8e35d145335d889d470fc8 into 19a39b2f66cd7a165082d1486b2f1eb36ec2354a".
+          # For push events, fall back to github.sha because pull_request context is absent.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch all history so gitlint can check the relevant commits.
           fetch-depth: "0"
@@ -103,7 +104,14 @@ jobs:
       - name: Comment on PR when validate fails
         uses: actions/github-script@v7
         # Only comment on non-closed PR events when node validation fails.
-        if: ${{ always() && matrix.component == 'node' && github.event_name == 'pull_request' && github.event.action != 'closed' && steps.validate_data.outcome == 'failure' }}
+        if: >-
+          ${{
+            always() &&
+            matrix.component == 'node' &&
+            github.event_name == 'pull_request' &&
+            github.event.action != 'closed' &&
+            steps.validate_data.outcome == 'failure'
+          }}
         with:
           script: |
             await github.rest.issues.createComment({
