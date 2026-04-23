@@ -45,26 +45,6 @@ jobs:
           node-version: "20"
           cache: "pnpm"
 
-      - name: Auto-fix formatting with Prettier
-        id: prettier
-        run: |
-          set +e
-          pnpm prettier:write
-          PRETTIER_EXIT=$?
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ $PRETTIER_EXIT -ne 0 ]; then
-            echo "fixed=false" >> $GITHUB_OUTPUT
-          elif git diff --quiet; then
-            echo "fixed=false" >> $GITHUB_OUTPUT
-          else
-            git add -A
-            git commit -m "style: auto-fix formatting with prettier"
-            git push origin HEAD:${{ github.head_ref }}
-            echo "fixed=true" >> $GITHUB_OUTPUT
-          fi
-
       - name: Run validate
         id: validate
         run: |
@@ -77,6 +57,22 @@ jobs:
             cat /tmp/validate_output.txt
             echo VALIDATE_EOF
           } >> $GITHUB_OUTPUT
+
+      - name: Auto-fix formatting with Prettier
+        id: prettier
+        if: steps.validate.outputs.exit_code == '0'
+        run: |
+          pnpm prettier:write || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "fixed=false" >> $GITHUB_OUTPUT
+          else
+            git add -A
+            git commit -m "style: auto-fix formatting with prettier"
+            git push origin HEAD:${{ github.head_ref }}
+            echo "fixed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: AI fix validation errors
         id: ai_fix
