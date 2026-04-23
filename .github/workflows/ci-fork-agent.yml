@@ -27,8 +27,8 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GH_PAT }}
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GH_PAT || github.token }}
           fetch-depth: 0
 
       - name: Setup pnpm
@@ -45,63 +45,90 @@ jobs:
           node-version: "20"
           cache: "pnpm"
 
-      - name: Auto-fix formatting with Prettier
-        id: prettier
-        run: |
-          pnpm prettier:write
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
-            echo "fixed=false" >> $GITHUB_OUTPUT
-          else
-            git add -A
-            git commit -m "style: auto-fix formatting with prettier"
-            git push origin HEAD:${{ github.head_ref }}
-            echo "fixed=true" >> $GITHUB_OUTPUT
-          fi
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
 
       - name: Run validate
         id: validate
         run: |
           set +e
           pnpm validate 2>&1 | tee /tmp/validate_output.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          {
+            echo 'errors<<VALIDATE_EOF'
+            cat /tmp/validate_output.txt
+            echo VALIDATE_EOF
+          } >> $GITHUB_OUTPUT
+
+      - name: AI fix validation errors
+        id: ai_fix
+        if: steps.validate.outputs.exit_code != '0'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VALIDATE_ERRORS: ${{ steps.validate.outputs.errors }}
+        run: |
+          claude -p "Fix the YAML validation errors in this PR.
+
+          Errors from \`pnpm validate\`:
+          \`\`\`
+          $VALIDATE_ERRORS
+          \`\`\`
+
+          Instructions:
+          1. Read each failing file (data/projects/ or data/collections/)
+          2. Check schema at src/resources/schema/project.json or collection.json
+          3. Fix each error — do not change anything else
+          4. Run \`pnpm validate\` to confirm all errors resolved
+          5. If errors remain, keep fixing until validate passes" \
+            --allowedTools "Read,Write,Edit,Bash(pnpm *),Bash(git diff *),Bash(git status)" \
+            --output-format json > /tmp/claude_output.json
+
+      - name: Commit and push AI fixes
+        if: steps.validate.outputs.exit_code != '0' && steps.ai_fix.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "fix: resolve validation errors"
+          git push origin HEAD:${{ github.head_ref }}
+
+      - name: Auto-fix formatting with Prettier
+        if: steps.validate.outputs.exit_code == '0'
+        run: |
+          pnpm prettier:write || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "style: auto-fix formatting with prettier"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
 
       - name: Comment on PR
-        if: always() && (steps.validate.outputs.exit_code != '0' || steps.prettier.outputs.fixed == 'true')
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const prettierFixed = '${{ steps.prettier.outputs.fixed }}' === 'true';
-            const validateFailed = '${{ steps.validate.outputs.exit_code }}' !== '0';
-            const validateOutput = fs.readFileSync('/tmp/validate_output.txt', 'utf8').trim();
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          if [ "${{ steps.validate.outputs.exit_code }}" != "0" ]; then
+            if [ "${{ steps.ai_fix.outcome }}" == "success" ]; then
+              SUMMARY=$(jq -r '.result // "Validation errors were fixed."' /tmp/claude_output.json 2>/dev/null || echo "Validation errors were fixed.")
+              BODY="### ✅ Validation errors auto-fixed
 
-            const parts = [];
+          $SUMMARY"
+            else
+              ERRORS=$(cat /tmp/validate_output.txt)
+              BODY="### ❌ Validation Errors
 
-            if (prettierFixed) {
-              parts.push('✅ **Prettier auto-fix applied** — formatting errors were fixed and committed automatically.');
-            }
+          AI fix failed — fix manually before merging:
 
-            if (validateFailed) {
-              parts.push([
-                '## ❌ Validation Errors',
-                '',
-                'Fix these errors before merging:',
-                '',
-                '```',
-                validateOutput,
-                '```',
-              ].join('\n'));
-            }
+          \`\`\`
+          $ERRORS
+          \`\`\`"
+            fi
+            gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+          fi
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: parts.join('\n\n'),
-            });
-
-      - name: Fail if validation failed
-        if: steps.validate.outputs.exit_code != '0'
+      - name: Fail if validation errors remain
+        if: steps.validate.outputs.exit_code != '0' && steps.ai_fix.outcome != 'success'
         run: exit 1
