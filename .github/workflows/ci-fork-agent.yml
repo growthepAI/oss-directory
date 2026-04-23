@@ -17,7 +17,6 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  id-token: write
 
 jobs:
   pr-agent:
@@ -46,6 +45,9 @@ jobs:
           node-version: "20"
           cache: "pnpm"
 
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Run validate
         id: validate
         run: |
@@ -59,67 +61,73 @@ jobs:
             echo VALIDATE_EOF
           } >> $GITHUB_OUTPUT
 
+      - name: AI fix validation errors
+        id: ai_fix
+        if: steps.validate.outputs.exit_code != '0'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VALIDATE_ERRORS: ${{ steps.validate.outputs.errors }}
+        run: |
+          claude -p "Fix the YAML validation errors in this PR.
+
+          Errors from \`pnpm validate\`:
+          \`\`\`
+          $VALIDATE_ERRORS
+          \`\`\`
+
+          Instructions:
+          1. Read each failing file (data/projects/ or data/collections/)
+          2. Check schema at src/resources/schema/project.json or collection.json
+          3. Fix each error — do not change anything else
+          4. Run \`pnpm validate\` to confirm all errors resolved
+          5. If errors remain, keep fixing until validate passes" \
+            --allowedTools "Read,Write,Edit,Bash(pnpm *),Bash(git diff *),Bash(git status)" \
+            --output-format json > /tmp/claude_output.json
+
+      - name: Commit and push AI fixes
+        if: steps.validate.outputs.exit_code != '0' && steps.ai_fix.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "fix: resolve validation errors"
+          git push origin HEAD:${{ github.head_ref }}
+
       - name: Auto-fix formatting with Prettier
-        id: prettier
         if: steps.validate.outputs.exit_code == '0'
         run: |
           pnpm prettier:write || true
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
-            echo "fixed=false" >> $GITHUB_OUTPUT
-          else
+          if ! git diff --quiet; then
             git add -A
             git commit -m "style: auto-fix formatting with prettier"
             git push origin HEAD:${{ github.head_ref }}
-            echo "fixed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: AI fix validation errors
-        id: ai_fix
-        if: steps.validate.outputs.exit_code != '0'
-        uses: anthropics/claude-code-action@beta
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GH_PAT }}
-          direct_prompt: |
-            Fix the YAML validation errors in this PR.
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          if [ "${{ steps.validate.outputs.exit_code }}" != "0" ]; then
+            if [ "${{ steps.ai_fix.outcome }}" == "success" ]; then
+              SUMMARY=$(jq -r '.result // "Validation errors were fixed."' /tmp/claude_output.json 2>/dev/null || echo "Validation errors were fixed.")
+              BODY="### ✅ Validation errors auto-fixed
 
-            Errors from `pnpm validate`:
-            ```
-            ${{ steps.validate.outputs.errors }}
-            ```
+          $SUMMARY"
+            else
+              ERRORS=$(cat /tmp/validate_output.txt)
+              BODY="### ❌ Validation Errors
 
-            Instructions:
-            1. Read each failing file (they are in data/projects/ or data/collections/)
-            2. Check the schema at src/resources/schema/project.json or src/resources/schema/collection.json
-            3. Fix each error — do not change anything else in the files
-            4. Run `pnpm validate` to confirm all errors are resolved
-            5. If errors remain, keep fixing until validate passes
-            6. Commit all fixed files with message: "fix: resolve validation errors"
-            7. Post a PR comment summarising what was fixed and why
+          AI fix failed — fix manually before merging:
 
-      - name: Comment fallback if AI fix failed
-        if: always() && steps.validate.outputs.exit_code != '0' && steps.ai_fix.outcome != 'success'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const output = fs.readFileSync('/tmp/validate_output.txt', 'utf8').trim();
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: [
-                '## ❌ Validation Errors',
-                '',
-                'AI fix was unable to resolve these — fix manually before merging:',
-                '',
-                '```',
-                output,
-                '```',
-              ].join('\n'),
-            });
+          \`\`\`
+          $ERRORS
+          \`\`\`"
+            fi
+            gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+          fi
 
       - name: Fail if validation errors remain
         if: steps.validate.outputs.exit_code != '0' && steps.ai_fix.outcome != 'success'
