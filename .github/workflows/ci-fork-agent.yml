@@ -48,10 +48,15 @@ jobs:
       - name: Auto-fix formatting with Prettier
         id: prettier
         run: |
+          set +e
           pnpm prettier:write
+          PRETTIER_EXIT=$?
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
+          if [ $PRETTIER_EXIT -ne 0 ]; then
+            echo "fixed=false" >> $GITHUB_OUTPUT
+          elif git diff --quiet; then
             echo "fixed=false" >> $GITHUB_OUTPUT
           else
             git add -A
