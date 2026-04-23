@@ -17,6 +17,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   pr-agent:
@@ -80,7 +81,7 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          token: ${{ secrets.GH_PAT || github.token }}
+          github_token: ${{ secrets.GH_PAT }}
           direct_prompt: |
             Fix the YAML validation errors in this PR.
 
