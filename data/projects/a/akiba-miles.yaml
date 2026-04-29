@@ -1,0 +1,9 @@
+version: 7
+name: akiba-miles
+display_name: Akiba Miles
+description: Akiba Miles is a platform that allows users to earn and redeem loyalty points for purchases made at participating Akiba stores. It aims to reward customers for their patronage and encourage repeat business. The program offers various redemption options, including discounts and exclusive merchandise.
+websites:
+  - url: https://www.akibamiles.com/
+social:
+  twitter:
+    - url: https://x.com/Akibamiles
