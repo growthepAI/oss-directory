@@ -1,0 +1,6 @@
+version: 7
+name: akibamiles
+display_name: AkibaMiles
+description: AkibaMiles is a rewards layer integrated into the MiniPay app. Users can earn miles by completing daily challenges, engaging in various activities within the app, or holding specific assets. These earned miles can then be used for raffle entries or in a dice game for a chance to win real rewards.
+websites:
+  - url: https://www.akibamiles.com/
