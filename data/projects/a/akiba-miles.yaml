@@ -1,0 +1,6 @@
+version: 7
+name: akiba-miles
+display_name: AkibaMiles
+description: AkibaMiles is a loyalty and engagement program built on the Celo blockchain. Users earn AkibaMiles by using MiniPay for transactions, participating in raffles, and completing challenges. These miles can then be redeemed for a chance to win various rewards.
+websites:
+  - url: https://www.akibamiles.com/
