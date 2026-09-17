@@ -1,5 +1,13 @@
 version: 7
 name: ampleforth
 display_name: Ampleforth
+description: gary alexander
+websites:
+  - url: https://gdasma.wordpress.com
+social:
+  twitter:
+    - url: https://x.com/gdaAlexand8930
+  telegram:
+    - url: https://t.me/gb2real77
 github:
   - url: https://github.com/ampleforth
