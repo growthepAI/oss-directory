@@ -1,0 +1,13 @@
+version: 7
+name: curvy
+display_name: Curvy
+description: Curvy is a privacy protocol for stablecoin and token payments on EVM networks. Users send and receive funds through stealth addresses and a zero-knowledge shielded pool, so individual payments are not publicly linked to each other or to the recipient's main address. Account holders can share viewing keys to disclose selected transactions to auditors or authorities.
+websites:
+  - url: https://curvy.box
+social:
+  twitter:
+    - url: https://x.com/0xCurvy
+  telegram:
+    - url: https://t.me/CurvyProtocol
+github:
+  - url: https://github.com/0xCurvy
