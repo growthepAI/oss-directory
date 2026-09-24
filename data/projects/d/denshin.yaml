@@ -1,0 +1,11 @@
+version: 7
+name: denshin
+display_name: Denshin
+description: Denshin is a Web3 quest game played on a city map across Base, Soneium and Sonic. Quests are verified by reading the chain, and completing one opens quarters of the map and earns points toward a season leaderboard. DenshinSync is its on-chain daily check-in contract, deployed at the same address on all three networks. The game runs in the browser and as a Farcaster mini app.
+websites:
+  - url: https://denshin.io
+social:
+  twitter:
+    - url: https://x.com/_denshin
+  telegram:
+    - url: https://t.me/denshin_channel
