@@ -1,0 +1,13 @@
+version: 7
+name: memons
+display_name: MEMONS
+description: MEMONS is a meme card collecting and trading platform on Base. Users open capsules to collect meme cards, verify ownership onchain, and trade them in the marketplace and vault.
+websites:
+  - url: https://www.memons.io/
+social:
+  twitter:
+    - url: https://x.com/apepeofficial
+  telegram:
+    - url: https://t.me/APEPE_Official
+github:
+  - url: https://github.com/apeandpepe/memons
