@@ -6,6 +6,16 @@ env:
   PR_TOOLS_ADMIN_TEAM_NAME: ${{ secrets.PR_TOOLS_ADMIN_TEAM_NAME }}
   PR_TOOLS_REPO: ${{ github.repository }}
 
+# Least privilege for GITHUB_TOKEN. Triggered by issue_comment, so the input is
+# untrusted. Read-only across the board; the CLI's write operations go through
+# the PR_TOOLS GitHub App, not GITHUB_TOKEN.
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: read
+  statuses: read
+
 on:
   issue_comment:
     types:
@@ -22,7 +32,7 @@ jobs:
     if: github.event.issue.pull_request
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: main
           ref: main
@@ -43,7 +53,7 @@ jobs:
         if: ${{ steps.prs_permissions.outputs.is_admin == '1' }}
 
       - name: Login to google
-        uses: "google-github-actions/auth@v2"
+        uses: "google-github-actions/auth@v3"
         with:
           credentials_json: "${{ secrets.GOOGLE_BQ_ADMIN_CREDENTIALS_JSON }}"
           create_credentials_file: true

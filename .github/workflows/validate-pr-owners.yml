@@ -11,6 +11,17 @@ env:
 
   PR_TOOLS_REPO: ${{ github.repository }}
 
+# Least privilege for GITHUB_TOKEN. This runs on pull_request_target, so the
+# token is the base repo's — it must never be writable from a fork PR.
+# Read-only across the board; the CLI's write operations (check runs, comments)
+# go through the PR_TOOLS GitHub App, not GITHUB_TOKEN.
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  checks: read
+  statuses: read
+
 # Trigger the workflow when:
 on:
   pull_request_target:
@@ -29,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: main
           fetch-depth: 1
@@ -47,7 +58,7 @@ jobs:
           pnpm exec external-prs common is-repo-admin ${{ github.event.pull_request.user.login }} --output-file $GITHUB_OUTPUT
 
       - name: Login to google
-        uses: "google-github-actions/auth@v2"
+        uses: "google-github-actions/auth@v3"
         with:
           credentials_json: "${{ secrets.GOOGLE_BQ_ADMIN_CREDENTIALS_JSON }}"
           create_credentials_file: true
