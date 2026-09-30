@@ -7,4 +7,6 @@ websites:
 social:
   twitter:
     - url: https://x.com/WIFonRH
+github:
+  - url: https://github.com/wifonrh
 token_coingecko_api_id: world-is-flat
